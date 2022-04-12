@@ -1,0 +1,8 @@
+{
+  "carIds": [
+    {"car_id": "carId1"},
+    {"car_id": "carId2"},
+    {"car_id": "carId3"},
+    {"car_id": "carId4"}
+  ]
+}

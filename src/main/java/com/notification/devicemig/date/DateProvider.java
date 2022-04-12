@@ -1,5 +1,6 @@
 package com.notification.devicemig.date;
 
+import com.notification.devicemig.exception.DateNotFoundException;
 import com.notification.devicemig.repository.DevicemigRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +22,10 @@ public class DateProvider {
 
     private List<Date> dates = new ArrayList<>();
 
-    @PostConstruct
-    public void init(){
-        //for test
-//        LocalDateTime oldestDate = LocalDateTime.now().minusDays(7);
+    public List<Date> getDates(){
         LocalDateTime oldestDate = devicemigRepository.getOldestDate();
+        if(oldestDate == null)
+            throw new DateNotFoundException("DEVICE_MAPPING 에서 가장 오래된 날짜를 가져오지 못했습니다.");
 
         long diff = DAYS.between( oldestDate, LocalDateTime.now() );
 
@@ -34,6 +34,7 @@ public class DateProvider {
 
             dates.add( Date.of(addedDate) );
         }
-    }
 
+        return dates;
+    }
 }

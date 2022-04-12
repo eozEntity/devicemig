@@ -1,7 +1,6 @@
-package com.notification.devicemig.entity;
+package com.notification.devicemig.model.entity;
 
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import javax.persistence.*;
@@ -33,7 +32,6 @@ public class DeviceMapping {
     private String nadId;
 
     @Column(name="rgst_dtm", updatable = false)
-    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Column(name="mdfy_dtm")

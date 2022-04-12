@@ -2,13 +2,22 @@ package com.notification.devicemig.service;
 
 import com.notification.devicemig.date.Date;
 import com.notification.devicemig.date.DateProvider;
+import com.notification.devicemig.model.entity.CarIdBrand;
 import com.notification.devicemig.repository.DevicemigRepository;
-import com.notification.devicemig.request.VehicleClient;
+import com.notification.devicemig.request.VehicleWebClient;
+import com.notification.devicemig.model.vo.DeviceVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.json.simple.parser.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DeviceMigService {
@@ -17,41 +26,76 @@ public class DeviceMigService {
 
     private final DateProvider dateProvider;
 
-    public void verify() throws InterruptedException {
-        // 작업대상 날짜 가져옴
-        List<Date> dates = dateProvider.getDates();
+    private final DataLoaderService jsonDataLoaderService;
 
-        for(Date date : dates){
+    //Json 파일 읽어서 처리
+    public void verifyByJson() throws InterruptedException, ParseException, IOException {
+        VehicleWebClient vehicleWebClient = new VehicleWebClient();
+        List<DeviceVO> deviceMapping = jsonDataLoaderService.getData("GEN");
+        List<String> shouldDeleteCarIds = new ArrayList<>();
 
+        int loopCnt = 0;
 
-            //1번 2번으로 보낼 수 있다면?
-            devicemigRepository.getDeviceMappings(date.getBegin(), date.getEnd())
-                                .stream()
-                                .filter( dm -> dm.getCcId() != null && dm.getCcId().length() >= 2 )
-                                .forEach( deviceMapping -> {
-                                        int response = VehicleClient.request(deviceMapping);
+        log.info("Total Count : {}", deviceMapping.size());
 
-                                        if( invalidCarId(response) ){
-                                            // log 파일에 쌓아서 돌려보는게 나을듯
-                                            //
-                                            System.out.println(deviceMapping.getCarId());
-//                                            devicemigRepository.delete( deviceMapping );
-                                        }
-                                } );
+        for( DeviceVO device: deviceMapping ) {
 
-            // for문 + if문 + sleep + count -> 로그 쌓기
-            // distinct car_id 로 많이 줄어들긴 함
+            if( vehicleWebClient.request( device.getCarId(), device.getBrand() )
+                               .isInvalidCarId() ){
 
+                shouldDeleteCarIds.add( device.getCarId() );
+            }
+
+            if(shouldSleep(++loopCnt)){
+                deleteAndCleanup(shouldDeleteCarIds);
+
+            }
         }
 
-        //쉬는시간
-        Thread.sleep(50);
+//        devicemigRepository.delete( shouldDeleteCarIds );
 
     }
-    private static boolean invalidCarId(int statusCode){
-        return statusCode != 200;
+
+    private void deleteAndCleanup(List<String> shouldDeleteCarIds) throws InterruptedException {
+        devicemigRepository.delete( shouldDeleteCarIds );
+
+        System.out.println("===== Delete and Sleep ====");
+
+        shouldDeleteCarIds.clear();
+
+        Thread.sleep(250);
     }
 
+    public void verifyByDate(){
+        List<Date> dates = dateProvider.getDates();
+        VehicleWebClient vehicleWebClient = new VehicleWebClient();
 
+        for(Date date : dates){
+            log.info(date.toString());
+            //데이트로 가져오면
+            //살아있는 carId를 계속 물어봐야한다.
+            List<CarIdBrand> deviceMappings = devicemigRepository.getDeviceMappings(date);
+            List<String> shouldDeleteCarIds = new ArrayList<>();
+
+            for (CarIdBrand deviceMapping : deviceMappings) {
+
+                if( vehicleWebClient.request( deviceMapping.getCarId(), deviceMapping.getBrand() )
+                                    .isInvalidCarId() ){
+
+                    shouldDeleteCarIds.add(deviceMapping.getCarId());   // 이걸 파일로 빼던가..
+                }
+
+            }
+
+            // 하루에 대략 10,000건 삭제
+            // devicemigRepository.delete( shouldDeleteCarIds );
+
+
+        }
+    }
+
+    private static boolean shouldSleep(int cnt){
+        return cnt % 10000 == 0;
+    }
 }
 

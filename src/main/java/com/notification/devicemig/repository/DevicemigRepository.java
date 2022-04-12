@@ -1,9 +1,13 @@
 package com.notification.devicemig.repository;
 
-import com.notification.devicemig.entity.DeviceMapping;
+import com.notification.devicemig.date.Date;
+import com.notification.devicemig.model.entity.CarIdBrand;
+import com.notification.devicemig.model.entity.DeviceMapping;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,16 +22,27 @@ public interface DevicemigRepository extends JpaRepository<DeviceMapping, String
 
 
     @Query(nativeQuery = true,
-            value = "SELECT distinct d.car_id as carId," +
-                    "               d.ccid as ccId," +
-                    "               d.device_id as deviceId," +
-                    "               d.nad_id as nadId," +
-                    "               d.vin as vin," +
-                    "               d.rgst_dtm as createdAt," +
-                    "               d.mdfy_dtm as updatedAt " +
-                    "FROM device_mapping d " +
-                    "WHERE rgst_dtm between to_date(:begin, 'yyyymmddhh24miss') and to_date(:end, 'yyyymmddhh24miss')")
-    List<DeviceMapping> getDeviceMappings(@Param("begin") String begin, @Param("end") String end);
+            value = "SELECT DISTINCT a.carId, a.brand from " +
+                    "        (SELECT distinct d.car_id as carId," +
+                    "               substring( d.ccid,  position('_', d.ccid)+1 ,3) as brand," +
+                    "          FROM device_mapping d " +
+                    "         WHERE rgst_dtm between to_date(:#{#Date.begin}, 'yyyymmddhh24miss') AND to_date(:#{#Date.end}, 'yyyymmddhh24miss') " +
+                    "           AND length(d.ccid) > 10 " +
+                    "           ORDER BY d.car_id ) a ")
+    List<CarIdBrand> getDeviceMappings(@Param("Date") Date date);
+
+
+
+    @Transactional
+    @Modifying
+    @Query(nativeQuery = true,
+            value = "DELETE FROM DEVICE_MAPPING WHERE car_id in :carIds")
+    void delete(@Param("carIds") List<String> carIds);
+
+
+
+
+//
 
 
 

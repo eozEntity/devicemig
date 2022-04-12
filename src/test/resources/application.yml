@@ -9,16 +9,14 @@ spring:
     driver-class-name: org.h2.Driver
 
   jpa:
+    defer-datasource-initialization: true
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: create
     properties:
       hibernate:
-        show_sql: false
-        format_sql: false
+        show_sql: true
+        format_sql: true
 
-logging:
-    level:
-      org.hibernate.SQL: debug
-    file:
-      path: logs
+logging.level:
+  org.hibernate.SQL: debug
